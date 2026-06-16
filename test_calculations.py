@@ -1,6 +1,6 @@
 """Unit tests for the calculation rules. Run: python -m pytest test_calculations.py
    (or just `python test_calculations.py`)."""
-from calculations import compute_sacs, compute_tcc
+from calculations import compute_sacs, compute_tcc, ACCOUNT_FLOOR
 
 
 def test_sacs_excess_and_target():
@@ -28,7 +28,26 @@ def test_tcc_rules():
     assert t["liabilities_total"] == 200000
 
 
+def test_account_floor():
+    """Accounts below $1,000 are counted as $1,000 (PRD floor rule)."""
+    accounts = [
+        {"category": "retirement", "owner": "client1", "balance": 500},    # below floor
+        {"category": "retirement", "owner": "client2", "balance": 0},      # zero → floor
+        {"category": "non_retirement", "owner": "joint", "balance": 200},  # below floor
+        {"category": "trust", "owner": "joint", "balance": 100},           # no floor on trust
+        {"category": "liability", "owner": "joint", "balance": 50},        # no floor on liabilities
+    ]
+    t = compute_tcc(accounts)
+    assert t["c1_retirement_total"] == ACCOUNT_FLOOR       # 500 → 1000
+    assert t["c2_retirement_total"] == ACCOUNT_FLOOR       # 0   → 1000
+    assert t["non_retirement_total"] == ACCOUNT_FLOOR      # 200 → 1000
+    assert t["trust_total"] == 100                         # trust unchanged
+    assert t["liabilities_total"] == 50                    # liabilities unchanged
+    assert t["grand_total_net_worth"] == ACCOUNT_FLOOR * 3 + 100  # 3100
+
+
 if __name__ == "__main__":
     test_sacs_excess_and_target()
     test_tcc_rules()
+    test_account_floor()
     print("All calculation tests passed ✓")

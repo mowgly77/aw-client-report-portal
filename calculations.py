@@ -25,11 +25,14 @@ def calculate_age(dob_iso: str | None) -> int | None:
     return today.year - born.year - ((today.month, today.day) < (born.month, born.day))
 
 
-def _sum(accounts, **filters):
+ACCOUNT_FLOOR = 1_000.0  # Fixed floor per account (PRD rule, never change)
+
+
+def _sum(accounts, floor=0.0, **filters):
     total = 0.0
     for a in accounts:
         if all(a.get(k) == v for k, v in filters.items()):
-            total += float(a.get("balance") or 0)
+            total += max(float(a.get("balance") or 0), floor)
     return total
 
 
@@ -65,11 +68,11 @@ def compute_tcc(accounts):
     NEVER subtracted from net worth. Trust is part of net worth but NOT part of
     the non-retirement total.
     """
-    c1_retirement = _sum(accounts, category="retirement", owner="client1")
-    c2_retirement = _sum(accounts, category="retirement", owner="client2")
-    non_retirement = _sum(accounts, category="non_retirement")
-    trust = _sum(accounts, category="trust")
-    liabilities = _sum(accounts, category="liability")
+    c1_retirement = _sum(accounts, floor=ACCOUNT_FLOOR, category="retirement", owner="client1")
+    c2_retirement = _sum(accounts, floor=ACCOUNT_FLOOR, category="retirement", owner="client2")
+    non_retirement = _sum(accounts, floor=ACCOUNT_FLOOR, category="non_retirement")
+    trust = _sum(accounts, category="trust")        # no floor: Zillow value, not an account
+    liabilities = _sum(accounts, category="liability")  # no floor: debts are debts
 
     grand_total = c1_retirement + c2_retirement + non_retirement + trust
 
