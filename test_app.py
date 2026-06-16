@@ -71,6 +71,34 @@ def test_unknown_pdf_kind_404(client, sample_client_id):
     assert client.get(f"/client/{sample_client_id}/pdf/bogus").status_code == 404
 
 
+def test_invalid_client_rejected(client):
+    # Missing name + non-numeric salary -> 400 with the form re-rendered.
+    r = client.post("/client/new", data={
+        "name1": "", "monthly_salary": "abc",
+    })
+    assert r.status_code == 400
+    body = r.get_data(as_text=True)
+    assert "obligatorio" in body or "número" in body
+
+
+def test_account_category_whitelisted(client):
+    # A bogus category must be coerced to a safe value, never stored raw.
+    cid = db.save_client({
+        "name1": "Whitelist", "monthly_salary": 1, "monthly_expense_budget": 1,
+        "accounts": [{"label": "X", "category": "retirement", "owner": "client1", "balance": 5}],
+    })
+    import app as a
+    with a.app.test_request_context(
+        "/client/x/edit", method="POST",
+        data={"acct_label": "X", "acct_category": "hacker", "acct_owner": "nope", "acct_balance": "-50"},
+    ):
+        accts = a._parse_accounts([])
+    assert accts[0]["category"] == "non_retirement"   # bogus -> safe default
+    assert accts[0]["owner"] == "joint"
+    assert accts[0]["balance"] == 0.0                  # negative clamped
+    db.get_client(cid)  # smoke
+
+
 def test_create_client_via_form(client):
     r = client.post("/client/new", data={
         "name1": "Form Client", "monthly_salary": "12000",

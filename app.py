@@ -12,18 +12,19 @@ from datetime import date
 from flask import Flask, abort, redirect, render_template, request, send_file, url_for
 
 import db
+import validators as V
 from calculations import calculate_age, compute_sacs, compute_tcc
 
 app = Flask(__name__)
 db.init_db()
 
-ACCOUNT_CATEGORIES = ["retirement", "non_retirement", "trust", "liability"]
-ACCOUNT_OWNERS = ["client1", "client2", "joint"]
+ACCOUNT_CATEGORIES = list(V.ACCOUNT_CATEGORIES)
+ACCOUNT_OWNERS = list(V.ACCOUNT_OWNERS)
 
 
 # ---- request parsing ------------------------------------------------------
-def _f(name, default=0.0):
-    """Parse a float form field, tolerating $ and commas and blanks."""
+def _f(name: str, default: float = 0.0) -> float:
+    """Lenient float parse (used for the report form, where 0 is valid)."""
     raw = (request.form.get(name) or "").replace("$", "").replace(",", "").strip()
     if raw == "":
         return default
@@ -33,9 +34,14 @@ def _f(name, default=0.0):
         return default
 
 
-def _parse_accounts():
-    """Reconstruct the account rows posted from the dynamic table."""
-    accounts = []
+def _parse_accounts(errors: list[str] | None = None) -> list[dict]:
+    """Reconstruct + validate the account rows posted from the dynamic table.
+
+    Category/owner are whitelisted, last-4 is digits-only, balances and rates are
+    properly typed and range-checked. Rows without a label are ignored.
+    """
+    errors = errors if errors is not None else []
+    accounts: list[dict] = []
     labels = request.form.getlist("acct_label")
     cats = request.form.getlist("acct_category")
     owners = request.form.getlist("acct_owner")
@@ -43,25 +49,23 @@ def _parse_accounts():
     balances = request.form.getlist("acct_balance")
     rates = request.form.getlist("acct_rate")
     addrs = request.form.getlist("acct_address")
-    def num(lst, idx):
-        v = (lst[idx] if idx < len(lst) else "").replace("$", "").replace(",", "").strip()
-        try:
-            return float(v)
-        except (ValueError, AttributeError):
-            return 0.0
+
+    def at(lst: list[str], idx: int) -> str:
+        return lst[idx] if idx < len(lst) else ""
 
     for i in range(len(labels)):
-        label = (labels[i] or "").strip()
+        label = V.clean_text(at(labels, i))
         if not label:
             continue
+        bal = V.parse_money(at(balances, i), field=f"Balance de «{label}»", errors=errors)
         accounts.append({
             "label": label,
-            "category": cats[i] if i < len(cats) else "non_retirement",
-            "owner": owners[i] if i < len(owners) else "joint",
-            "last4": (last4[i] if i < len(last4) else "").strip(),
-            "balance": num(balances, i),
-            "interest_rate": num(rates, i),
-            "address": (addrs[i] if i < len(addrs) else "").strip(),
+            "category": V.normalize_category(at(cats, i)),
+            "owner": V.normalize_owner(at(owners, i)),
+            "last4": V.digits_only(at(last4, i), max_len=4),
+            "balance": bal if bal is not None else 0.0,
+            "interest_rate": V.parse_rate(at(rates, i)),
+            "address": V.clean_text(at(addrs, i), max_len=200),
         })
     return accounts
 
@@ -80,26 +84,37 @@ def index():
 def client_form(client_id=None):
     client = db.get_client(client_id) if client_id else None
     if request.method == "POST":
+        errors: list[str] = []
+        is_married = 1 if request.form.get("is_married") else 0
+        name1 = V.clean_text(request.form.get("name1"))
+        if not name1:
+            errors.append("El nombre del Cliente 1 es obligatorio.")
         data = {
-            "is_married": 1 if request.form.get("is_married") else 0,
-            "name1": request.form.get("name1", "").strip(),
-            "dob1": request.form.get("dob1") or None,
-            "ssn1_last4": request.form.get("ssn1_last4", "").strip(),
-            "name2": request.form.get("name2", "").strip(),
-            "dob2": request.form.get("dob2") or None,
-            "ssn2_last4": request.form.get("ssn2_last4", "").strip(),
-            "monthly_salary": _f("monthly_salary"),
-            "monthly_expense_budget": _f("monthly_expense_budget"),
-            "insurance_deductibles_total": _f("insurance_deductibles_total"),
+            "is_married": is_married,
+            "name1": name1,
+            "dob1": V.parse_date(request.form.get("dob1"), field="Fecha de nacimiento (C1)", errors=errors),
+            "ssn1_last4": V.digits_only(request.form.get("ssn1_last4"), max_len=4),
+            "name2": V.clean_text(request.form.get("name2")),
+            "dob2": V.parse_date(request.form.get("dob2"), field="Fecha de nacimiento (C2)", errors=errors),
+            "ssn2_last4": V.digits_only(request.form.get("ssn2_last4"), max_len=4),
+            "monthly_salary": V.parse_money(request.form.get("monthly_salary"), field="Inflow", errors=errors) or 0.0,
+            "monthly_expense_budget": V.parse_money(request.form.get("monthly_expense_budget"), field="Outflow", errors=errors) or 0.0,
+            "insurance_deductibles_total": V.parse_money(request.form.get("insurance_deductibles_total"), field="Deducibles", errors=errors) or 0.0,
             "private_reserve_balance": _f("private_reserve_balance"),
             "schwab_balance": _f("schwab_balance"),
-            "accounts": _parse_accounts(),
+            "accounts": _parse_accounts(errors),
         }
+        if errors:
+            return render_template(
+                "client_form.html", client=data, errors=errors,
+                categories=ACCOUNT_CATEGORIES, owners=ACCOUNT_OWNERS,
+            ), 400
         new_id = db.save_client(data, client_id)
         return redirect(url_for("report_form", client_id=new_id))
     return render_template(
         "client_form.html",
         client=client,
+        errors=[],
         categories=ACCOUNT_CATEGORIES,
         owners=ACCOUNT_OWNERS,
     )

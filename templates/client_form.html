@@ -5,6 +5,13 @@
   <p class="muted">Static info entered once — reused every quarter.</p>
 </div>
 
+{% if errors %}
+<div class="errors">
+  <strong>Please fix the following:</strong>
+  <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
 <form method="post" class="card-form">
   <fieldset>
     <legend>Client 1</legend>

@@ -3,16 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}AW Client Report Portal{% endblock %}</title>
+  <title>{% block title %}Sagan · Client Report Portal{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
   <header class="topbar">
-    <a href="{{ url_for('index') }}" class="brand">AW&nbsp;<span>Report Portal</span></a>
+    <a href="{{ url_for('index') }}" class="brand">
+      <span class="mark">sagan</span>
+      <span class="divider"></span>
+      <span class="product">Client Report Portal</span>
+    </a>
     <nav><a href="{{ url_for('client_form') }}" class="btn btn-sm">+ New client</a></nav>
   </header>
   <main class="container">
     {% block content %}{% endblock %}
   </main>
+  <footer class="foot-bar">
+    <span>Windbrook Solutions — SACS &amp; TCC reporting</span>
+    <span class="muted">Quarterly client reporting</span>
+  </footer>
 </body>
 </html>
