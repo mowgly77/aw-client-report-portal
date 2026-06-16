@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <h1>Report ready — {{ client.name1 }}</h1>
+  <p class="muted">{{ report_date }}</p>
+</div>
+
+<div class="report-grid">
+  <div class="report-card">
+    <h2>SACS — Cashflow</h2>
+    <ul class="kv">
+      <li><span>Inflow</span><b>{{ sacs.inflow|money }}/mo</b></li>
+      <li><span>Outflow</span><b>{{ sacs.outflow|money }}/mo</b></li>
+      <li><span>Excess → Private Reserve</span><b>{{ sacs.excess|money }}/mo</b></li>
+      <li><span>Reserve target</span><b>{{ sacs.reserve_target|money }}</b></li>
+    </ul>
+    <a class="btn" href="{{ url_for('pdf', client_id=client.id, kind='sacs') }}">⬇ Download SACS PDF</a>
+  </div>
+
+  <div class="report-card">
+    <h2>TCC — Net Worth</h2>
+    <ul class="kv">
+      <li><span>Client 1 retirement</span><b>{{ tcc.c1_retirement_total|money }}</b></li>
+      {% if client.is_married %}<li><span>Client 2 retirement</span><b>{{ tcc.c2_retirement_total|money }}</b></li>{% endif %}
+      <li><span>Non-retirement</span><b>{{ tcc.non_retirement_total|money }}</b></li>
+      <li><span>Trust</span><b>{{ tcc.trust_total|money }}</b></li>
+      <li class="grand"><span>Grand total net worth</span><b>{{ tcc.grand_total_net_worth|money }}</b></li>
+      <li><span>Liabilities (separate)</span><b>{{ tcc.liabilities_total|money }}</b></li>
+    </ul>
+    <a class="btn" href="{{ url_for('pdf', client_id=client.id, kind='tcc') }}">⬇ Download TCC PDF</a>
+  </div>
+</div>
+
+<div class="form-actions">
+  <a class="btn btn-ghost" href="{{ url_for('report_form', client_id=client.id) }}">← Re-enter balances</a>
+  <a class="btn btn-ghost" href="{{ url_for('index') }}">All clients</a>
+</div>
+{% endblock %}

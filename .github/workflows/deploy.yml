@@ -1,0 +1,21 @@
+name: Deploy to Railway
+
+# Auto-deploy only after code lands on main. Requires repo secret RAILWAY_TOKEN
+# (Railway -> Project -> Settings -> Tokens). The deploy waits on CI passing.
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --service "${{ vars.RAILWAY_SERVICE || 'web' }}" --detach

@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <h1>Quarterly balances — {{ client.name1 }}{% if client.is_married and client.name2 %} &amp; {{ client.name2 }}{% endif %}</h1>
+  <p class="muted">Enter this quarter's balances. Each field shows last quarter's value — click <em>use last</em> to reuse it, or type a new number (manual override). You can't generate until every balance is filled.</p>
+</div>
+
+<div id="checklist" class="checklist"></div>
+
+<form method="post" class="card-form" id="report-form">
+  <label>Quarter label<input name="quarter_label" placeholder="Q2 2026" style="max-width:200px"></label>
+
+  <fieldset>
+    <legend>Cashflow (SACS)</legend>
+    <div class="grid-3">
+      <label>Inflow (monthly)<input id="inflow" name="monthly_salary" value="{{ client.monthly_salary }}"></label>
+      <label>Outflow (monthly)<input id="outflow" name="monthly_expense_budget" value="{{ client.monthly_expense_budget }}"></label>
+      <label>Insurance deductibles<input id="deduct" name="insurance_deductibles_total" value="{{ client.insurance_deductibles_total }}"></label>
+    </div>
+    <div class="grid-3">
+      <label>Private Reserve balance
+        <input class="req" name="private_reserve_balance" data-last="{{ client.private_reserve_balance }}">
+        <small class="lastval" data-target="private_reserve_balance"></small>
+      </label>
+      <label>Schwab balance
+        <input class="req" name="schwab_balance" data-last="{{ client.schwab_balance }}">
+        <small class="lastval" data-target="schwab_balance"></small>
+      </label>
+    </div>
+    <div class="live">
+      <span>Excess to reserve: <strong id="excess">$0</strong></span>
+      <span>Reserve target: <strong id="target">$0</strong></span>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Account balances (TCC) <button type="button" class="btn btn-sm" id="add-acct">+ Add</button></legend>
+    <table class="data accounts" id="accts">
+      <thead><tr><th>Label</th><th>Category</th><th>Owner</th><th>Last 4</th><th>Balance (this quarter)</th><th>Rate %</th><th>Trust address</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="live">
+      <span>C1 retirement: <strong id="t-c1">$0</strong></span>
+      <span>C2 retirement: <strong id="t-c2">$0</strong></span>
+      <span>Non-retirement: <strong id="t-nr">$0</strong></span>
+      <span>Trust: <strong id="t-tr">$0</strong></span>
+      <span class="grand">Net worth: <strong id="t-grand">$0</strong></span>
+      <span>Liabilities (separate): <strong id="t-liab">$0</strong></span>
+    </div>
+  </fieldset>
+
+  <div class="form-actions">
+    <button class="btn" type="submit" id="generate-btn" disabled>Generate report →</button>
+    <a class="btn btn-ghost" href="{{ url_for('client_form', client_id=client.id) }}">Edit profile</a>
+  </div>
+</form>
+
+<script>
+  const CATS = {{ categories|tojson }};
+  const OWNERS = {{ owners|tojson }};
+  const existing = {{ client.accounts|tojson }};
+  const fmt = n => '$' + (Math.round(n||0)).toLocaleString('en-US');
+  const num = el => parseFloat((el.value||'').replace(/[$,]/g,'')) || 0;
+  const isBlank = el => (el.value||'').trim() === '';
+
+  function opt(list, sel){ return list.map(v => `<option ${v===sel?'selected':''}>${v}</option>`).join(''); }
+
+  // Balance starts EMPTY; last quarter's value lives in data-last with a "use last" button.
+  function row(a={}){
+    const tr = document.createElement('tr');
+    const last = (a.balance!==undefined && a.balance!=='') ? a.balance : '';
+    tr.innerHTML = `
+      <td><input name="acct_label" value="${a.label||''}"></td>
+      <td><select name="acct_category">${opt(CATS, a.category||'retirement')}</select></td>
+      <td><select name="acct_owner">${opt(OWNERS, a.owner||'client1')}</select></td>
+      <td><input name="acct_last4" maxlength="4" value="${a.last4||''}" size="4"></td>
+      <td>
+        <input name="acct_balance" class="bal req" data-last="${last}" size="9" placeholder="—">
+        <small class="lastbtn"></small>
+      </td>
+      <td><input name="acct_rate" value="${a.interest_rate||''}" size="4"></td>
+      <td><input name="acct_address" value="${a.address||''}"></td>
+      <td><button type="button" class="btn btn-sm btn-ghost del">✕</button></td>`;
+    tr.querySelector('.del').onclick = () => { tr.remove(); wire(); recalc(); };
+    return tr;
+  }
+
+  const tbody = document.querySelector('#accts tbody');
+  document.getElementById('add-acct').onclick = () => { tbody.appendChild(row()); wire(); recalc(); };
+  (existing.length ? existing : [{}]).forEach(a => tbody.appendChild(row(a)));
+
+  // Render "use last" affordances for every required field that has a data-last value.
+  function renderLast(){
+    document.querySelectorAll('.lastbtn').forEach(s => {
+      const inp = s.parentElement.querySelector('.bal');
+      const last = inp.dataset.last;
+      s.innerHTML = (last!=='' && last!=null)
+        ? `last: ${fmt(parseFloat(last))} <a href="#" class="use">use</a>` : 'no prior value';
+      const a = s.querySelector('.use');
+      if (a) a.onclick = e => { e.preventDefault(); inp.value = last; wire(); recalc(); };
+    });
+    document.querySelectorAll('.lastval').forEach(s => {
+      const inp = document.querySelector(`[name="${s.dataset.target}"]`);
+      const last = inp.dataset.last;
+      s.innerHTML = (last!=='' && last!=null && parseFloat(last))
+        ? `last: ${fmt(parseFloat(last))} <a href="#" class="use">use</a>` : 'no prior value';
+      const a = s.querySelector('.use');
+      if (a) a.onclick = e => { e.preventDefault(); inp.value = last; wire(); recalc(); };
+    });
+  }
+
+  // Checklist gating: list every empty required field; disable Generate until all filled.
+  function checkComplete(){
+    const missing = [];
+    document.querySelectorAll('.req').forEach(inp => {
+      if (isBlank(inp)) {
+        inp.classList.add('incomplete');
+        const lbl = inp.name==='acct_balance'
+          ? (inp.closest('tr').querySelector('[name=acct_label]').value || 'account')
+          : inp.name.replace(/_/g,' ');
+        missing.push(lbl);
+      } else inp.classList.remove('incomplete');
+    });
+    const box = document.getElementById('checklist');
+    const btn = document.getElementById('generate-btn');
+    if (missing.length){
+      box.className = 'checklist warn';
+      box.innerHTML = `⚠ ${missing.length} field(s) still need a balance: <b>${missing.join(', ')}</b>`;
+      btn.disabled = true;
+    } else {
+      box.className = 'checklist ok';
+      box.innerHTML = '✓ All balances entered — ready to generate.';
+      btn.disabled = false;
+    }
+  }
+
+  function recalc(){
+    const inflow = num(document.getElementById('inflow'));
+    const outflow = num(document.getElementById('outflow'));
+    const deduct = num(document.getElementById('deduct'));
+    document.getElementById('excess').textContent = fmt(inflow - outflow);
+    document.getElementById('target').textContent = fmt(6*outflow + deduct);
+    let c1=0,c2=0,nr=0,tr=0,li=0;
+    tbody.querySelectorAll('tr').forEach(r => {
+      const cat = r.querySelector('[name=acct_category]').value;
+      const own = r.querySelector('[name=acct_owner]').value;
+      const bal = num(r.querySelector('.bal'));
+      if (cat==='retirement' && own==='client1') c1+=bal;
+      else if (cat==='retirement' && own==='client2') c2+=bal;
+      else if (cat==='non_retirement') nr+=bal;
+      else if (cat==='trust') tr+=bal;
+      else if (cat==='liability') li+=bal;
+    });
+    document.getElementById('t-c1').textContent=fmt(c1);
+    document.getElementById('t-c2').textContent=fmt(c2);
+    document.getElementById('t-nr').textContent=fmt(nr);
+    document.getElementById('t-tr').textContent=fmt(tr);
+    document.getElementById('t-grand').textContent=fmt(c1+c2+nr+tr);
+    document.getElementById('t-liab').textContent=fmt(li);
+    checkComplete();
+  }
+
+  // (Re)attach listeners after any DOM change.
+  function wire(){
+    document.querySelectorAll('#report-form input, #report-form select').forEach(el => {
+      el.oninput = recalc; el.onchange = recalc;
+    });
+    renderLast();
+  }
+
+  wire();
+  recalc();
+</script>
+{% endblock %}

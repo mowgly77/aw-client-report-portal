@@ -1,0 +1,60 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  @page { size: letter; margin: 1in 0.9in; }
+  * { box-sizing: border-box; }
+  body { font-family: Helvetica, Arial, sans-serif; color: #1c2b3a; margin: 0; }
+  .hdr { border-bottom: 3px solid #1f4e79; padding-bottom: 10px; margin-bottom: 28px; }
+  .hdr h1 { color: #1f4e79; font-size: 22px; margin: 0; }
+  .hdr .sub { color: #6b7785; font-size: 12px; margin-top: 3px; }
+  .hdr .name { float: right; text-align: right; font-size: 13px; color:#1c2b3a; }
+  .flow { display: flex; align-items: center; justify-content: center; margin: 40px 0; }
+  .bubble { width: 150px; height: 150px; border-radius: 50%; color: #fff;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; }
+  .bubble .lbl { font-size: 13px; opacity: .95; }
+  .bubble .amt { font-size: 22px; font-weight: 700; margin-top: 4px; }
+  .bubble .per { font-size: 10px; opacity: .85; }
+  .inflow { background: #2e8b57; }
+  .outflow { background: #c0392b; }
+  .reserve { background: #1f4e79; }
+  .arrow { flex: 0 0 70px; text-align: center; color: #6b7785; position: relative; }
+  .arrow .line { font-size: 30px; line-height: 1; }
+  .arrow .cap { font-size: 10px; display:block; margin-top:2px;}
+  .arrow.red { color: #c0392b; }
+  .panel { border: 1px solid #d7dde4; border-radius: 8px; padding: 18px 22px; margin-top: 30px; }
+  .panel h2 { font-size: 14px; color:#1f4e79; margin:0 0 12px; border-bottom:1px solid #eef1f4; padding-bottom:6px;}
+  .row { display:flex; justify-content:space-between; padding:6px 0; font-size:13px; }
+  .row b { color:#1c2b3a; }
+  .foot { margin-top: 40px; font-size: 10px; color:#9aa5b1; text-align:center; }
+</style></head>
+<body>
+  <div class="hdr">
+    <div class="name"><strong>{{ client.name1 }}{% if client.is_married and client.name2 %} &amp; {{ client.name2 }}{% endif %}</strong><br>{{ report_date }}</div>
+    <h1>Simple Automated Cash Flow</h1>
+    <div class="sub">SACS — monthly cashflow overview</div>
+  </div>
+
+  <div class="flow">
+    <div class="bubble inflow">
+      <span class="lbl">Inflow</span><span class="amt">{{ sacs.inflow|money }}</span><span class="per">per month</span>
+    </div>
+    <div class="arrow red"><span class="line">&#10142;</span><span class="cap">expenses ✕</span></div>
+    <div class="bubble outflow">
+      <span class="lbl">Outflow</span><span class="amt">{{ sacs.outflow|money }}</span><span class="per">per month</span>
+    </div>
+    <div class="arrow"><span class="line">&#10142;</span><span class="cap">excess</span></div>
+    <div class="bubble reserve">
+      <span class="lbl">Private Reserve</span><span class="amt">{{ sacs.excess|money }}</span><span class="per">excess / month</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Private Reserve</h2>
+    <div class="row"><span>Current Private Reserve balance</span><b>{{ client.private_reserve_balance|money }}</b></div>
+    <div class="row"><span>Schwab investment balance</span><b>{{ client.schwab_balance|money }}</b></div>
+    <div class="row"><span>Reserve target (6 mo expenses + deductibles)</span><b>{{ sacs.reserve_target|money }}</b></div>
+  </div>
+
+  <div class="foot">Windbrook Solutions — prepared for client review. Figures are manually entered and reviewed each quarter.</div>
+</body></html>

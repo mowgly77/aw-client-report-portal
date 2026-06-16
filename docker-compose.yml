@@ -1,0 +1,15 @@
+# Local dev: `docker compose up` -> http://localhost:8000
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - RAILWAY_DATABASE_PATH=/data/portal.db
+    volumes:
+      - ./:/app          # live code for development
+      - portal_data:/data # persist the SQLite db across restarts
+
+volumes:
+  portal_data:

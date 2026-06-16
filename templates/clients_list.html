@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <h1>Clients</h1>
+  <p class="muted">Generate quarterly SACS &amp; TCC reports in minutes.</p>
+</div>
+
+{% if clients %}
+<table class="data">
+  <thead><tr><th>Client</th><th>Age</th><th>Status</th><th>Last report</th><th></th></tr></thead>
+  <tbody>
+  {% for c in clients %}
+    <tr>
+      <td>
+        <strong>{{ c.name1 }}</strong>
+        {% if c.is_married and c.name2 %}<span class="muted">&amp; {{ c.name2 }}</span>{% endif %}
+      </td>
+      <td>{{ c.age1 if c.age1 is not none else '—' }}</td>
+      <td>{{ 'Married' if c.is_married else 'Single' }}</td>
+      <td>{{ (c.last_report_date or '—')[:10] }}</td>
+      <td class="row-actions">
+        <a class="btn btn-sm" href="{{ url_for('report_form', client_id=c.id) }}">Generate report</a>
+        <a class="btn btn-sm btn-ghost" href="{{ url_for('client_form', client_id=c.id) }}">Edit</a>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty">
+  <p>No clients yet.</p>
+  <a class="btn" href="{{ url_for('client_form') }}">+ Add your first client</a>
+</div>
+{% endif %}
+{% endblock %}

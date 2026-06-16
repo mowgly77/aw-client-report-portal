@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ 'Edit client' if client else 'New client' }}</h1>
+  <p class="muted">Static info entered once — reused every quarter.</p>
+</div>
+
+<form method="post" class="card-form">
+  <fieldset>
+    <legend>Client 1</legend>
+    <div class="grid-3">
+      <label>Name<input name="name1" required value="{{ client.name1 if client else '' }}"></label>
+      <label>Date of birth<input type="date" name="dob1" value="{{ client.dob1 if client else '' }}"></label>
+      <label>SSN (last 4)<input name="ssn1_last4" maxlength="4" value="{{ client.ssn1_last4 if client else '' }}"></label>
+    </div>
+  </fieldset>
+
+  <label class="check">
+    <input type="checkbox" name="is_married" id="is_married" {{ 'checked' if client and client.is_married else '' }}>
+    Married (add Client 2)
+  </label>
+
+  <fieldset id="client2" style="{{ '' if client and client.is_married else 'display:none' }}">
+    <legend>Client 2</legend>
+    <div class="grid-3">
+      <label>Name<input name="name2" value="{{ client.name2 if client else '' }}"></label>
+      <label>Date of birth<input type="date" name="dob2" value="{{ client.dob2 if client else '' }}"></label>
+      <label>SSN (last 4)<input name="ssn2_last4" maxlength="4" value="{{ client.ssn2_last4 if client else '' }}"></label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Cashflow (SACS) — monthly</legend>
+    <div class="grid-3">
+      <label>Inflow / salary after tax<input name="monthly_salary" value="{{ client.monthly_salary if client else '' }}" placeholder="15000"></label>
+      <label>Outflow / expense budget<input name="monthly_expense_budget" value="{{ client.monthly_expense_budget if client else '' }}" placeholder="11000"></label>
+      <label>Insurance deductibles (total)<input name="insurance_deductibles_total" value="{{ client.insurance_deductibles_total if client else '' }}" placeholder="0"></label>
+    </div>
+    <div class="grid-3">
+      <label>Private Reserve balance<input name="private_reserve_balance" value="{{ client.private_reserve_balance if client else '' }}"></label>
+      <label>Schwab investment balance<input name="schwab_balance" value="{{ client.schwab_balance if client else '' }}"></label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Accounts (TCC) <button type="button" class="btn btn-sm" id="add-acct">+ Add account</button></legend>
+    <table class="data accounts" id="accts">
+      <thead><tr><th>Label</th><th>Category</th><th>Owner</th><th>Last 4</th><th>Balance</th><th>Rate %</th><th>Trust address</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p class="muted hint">Retirement (IRA, Roth, 401k) splits by owner. Trust = property (Zillow value). Liabilities show separately and are never subtracted.</p>
+  </fieldset>
+
+  <div class="form-actions">
+    <button class="btn" type="submit">Save &amp; enter balances →</button>
+    <a class="btn btn-ghost" href="{{ url_for('index') }}">Cancel</a>
+  </div>
+</form>
+
+<script>
+  const CATS = {{ categories|tojson }};
+  const OWNERS = {{ owners|tojson }};
+  const existing = {{ (client.accounts if client else [])|tojson }};
+
+  document.getElementById('is_married').addEventListener('change', e => {
+    document.getElementById('client2').style.display = e.target.checked ? '' : 'none';
+  });
+
+  function opt(list, sel){ return list.map(v => `<option ${v===sel?'selected':''}>${v}</option>`).join(''); }
+  function row(a={}){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input name="acct_label" value="${a.label||''}" placeholder="Roth IRA"></td>
+      <td><select name="acct_category">${opt(CATS, a.category||'retirement')}</select></td>
+      <td><select name="acct_owner">${opt(OWNERS, a.owner||'client1')}</select></td>
+      <td><input name="acct_last4" maxlength="4" value="${a.last4||''}" size="4"></td>
+      <td><input name="acct_balance" value="${a.balance||''}" size="9"></td>
+      <td><input name="acct_rate" value="${a.interest_rate||''}" size="4"></td>
+      <td><input name="acct_address" value="${a.address||''}" placeholder="123 Main St"></td>
+      <td><button type="button" class="btn btn-sm btn-ghost del">✕</button></td>`;
+    tr.querySelector('.del').onclick = () => tr.remove();
+    return tr;
+  }
+  const tbody = document.querySelector('#accts tbody');
+  document.getElementById('add-acct').onclick = () => tbody.appendChild(row());
+  if (existing.length) existing.forEach(a => tbody.appendChild(row(a)));
+  else { tbody.appendChild(row()); }
+</script>
+{% endblock %}
