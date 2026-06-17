@@ -1,20 +1,18 @@
-name: Deploy to Railway
+name: Deploy to Railway (manual)
 
-# Auto-deploy only after code lands on main. Requires repo secret RAILWAY_TOKEN
-# (Railway -> Project -> Settings -> Tokens). The deploy waits on CI passing.
+# Railway deploys automatically from the connected GitHub repo, so this workflow
+# is NOT needed for normal deploys and does NOT run on push (that avoids a failing
+# check when RAILWAY_TOKEN isn't set). Kept as an optional manual trigger only.
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Install Railway CLI
         run: npm install -g @railway/cli
-
       - name: Deploy
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

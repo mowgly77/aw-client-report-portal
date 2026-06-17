@@ -1,6 +1,6 @@
 """Unit tests for the calculation rules. Run: python -m pytest test_calculations.py
    (or just `python test_calculations.py`)."""
-from calculations import compute_sacs, compute_tcc, ACCOUNT_FLOOR
+from calculations import ACCOUNT_FLOOR, compute_sacs, compute_tcc
 
 
 def test_sacs_excess_and_target():
