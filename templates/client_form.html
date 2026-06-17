@@ -59,7 +59,7 @@
   </fieldset>
 
   <div class="form-actions">
-    <button class="btn" type="submit">Save &amp; enter balances →</button>
+    <button class="btn" type="submit" id="submit-btn">Save &amp; enter balances →</button>
     <a class="btn btn-ghost" href="{{ url_for('index') }}">Cancel</a>
   </div>
 </form>
@@ -92,5 +92,12 @@
   document.getElementById('add-acct').onclick = () => tbody.appendChild(row());
   if (existing.length) existing.forEach(a => tbody.appendChild(row(a)));
   else { tbody.appendChild(row()); }
+
+  // Prevent duplicate submissions: disable button immediately on submit.
+  document.querySelector('.card-form').addEventListener('submit', () => {
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+  });
 </script>
 {% endblock %}

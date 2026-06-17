@@ -163,5 +163,12 @@
 
   wire();
   recalc();
+
+  // Prevent duplicate submissions: disable button immediately on submit.
+  document.getElementById('report-form').addEventListener('submit', () => {
+    const btn = document.getElementById('generate-btn');
+    btn.disabled = true;
+    btn.textContent = 'Generating PDF… please wait';
+  });
 </script>
 {% endblock %}

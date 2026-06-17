@@ -20,4 +20,4 @@ RUN mkdir -p /data
 
 EXPOSE 8000
 # Railway provides $PORT; default 8000 locally.
-CMD ["sh", "-c", "gunicorn app:app --bind 0.0.0.0:${PORT:-8000}"]
+CMD ["sh", "-c", "gunicorn app:app --bind 0.0.0.0:${PORT:-8000} --timeout 120 --workers 2"]
