@@ -89,24 +89,17 @@
   document.getElementById('add-acct').onclick = () => { tbody.appendChild(row()); wire(); recalc(); };
   (existing.length ? existing : [{}]).forEach(a => tbody.appendChild(row(a)));
 
-  // Render "use last" affordances for every required field that has a data-last value.
+  // Render a visible "Use last" button for every required field that has a prior value.
+  function attachLast(slot, inp){
+    const last = inp.dataset.last;
+    const has = last !== '' && last != null && !isNaN(parseFloat(last));
+    if (!has){ slot.innerHTML = '<span class="noprior">no prior value</span>'; return; }
+    slot.innerHTML = `<button type="button" class="uselast">↻ Use last: ${fmt(parseFloat(last))}</button>`;
+    slot.querySelector('.uselast').onclick = () => { inp.value = last; wire(); recalc(); };
+  }
   function renderLast(){
-    document.querySelectorAll('.lastbtn').forEach(s => {
-      const inp = s.parentElement.querySelector('.bal');
-      const last = inp.dataset.last;
-      s.innerHTML = (last!=='' && last!=null)
-        ? `last: ${fmt(parseFloat(last))} <a href="#" class="use">use</a>` : 'no prior value';
-      const a = s.querySelector('.use');
-      if (a) a.onclick = e => { e.preventDefault(); inp.value = last; wire(); recalc(); };
-    });
-    document.querySelectorAll('.lastval').forEach(s => {
-      const inp = document.querySelector(`[name="${s.dataset.target}"]`);
-      const last = inp.dataset.last;
-      s.innerHTML = (last!=='' && last!=null && parseFloat(last))
-        ? `last: ${fmt(parseFloat(last))} <a href="#" class="use">use</a>` : 'no prior value';
-      const a = s.querySelector('.use');
-      if (a) a.onclick = e => { e.preventDefault(); inp.value = last; wire(); recalc(); };
-    });
+    document.querySelectorAll('.lastbtn').forEach(s => attachLast(s, s.parentElement.querySelector('.bal')));
+    document.querySelectorAll('.lastval').forEach(s => attachLast(s, document.querySelector(`[name="${s.dataset.target}"]`)));
   }
 
   // Checklist gating: list every empty required field; disable Generate until all filled.
