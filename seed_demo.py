@@ -2,7 +2,6 @@
 Populate the local DB with 4 realistic high-net-worth clients + Q1/Q2 2026 reports.
 Run INSIDE Docker: docker compose exec web python seed_demo.py
 """
-import json
 import db
 from calculations import compute_sacs, compute_tcc
 
